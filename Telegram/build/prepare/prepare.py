@@ -547,9 +547,7 @@ win:
         -DCMAKE_C_FLAGS="/DZLIB_WINAPI" ^
         -DZLIB_BUILD_EXAMPLES=OFF
 debug:
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
 release:
     cmake --build . --config Release
@@ -570,9 +568,7 @@ win:
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
         -DWITH_JPEG8=ON ^
         -DPNG_SUPPORTED=OFF
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
 release:
     cmake --build . --config Release
@@ -657,8 +653,7 @@ win:
     cmake -B out . ^
         -DCMAKE_INSTALL_PREFIX=%LIBS_DIR%/local ^
         -DOPUS_STATIC_RUNTIME=ON
-    debug:
-    debug:
+debug:
     cmake --build out --config Debug
     cmake --build out --config Release
     cmake --install out --config Release
@@ -678,9 +673,7 @@ stage('rnnoise', """
     cd out
 win:
     cmake .. -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
 release:
     cmake --build . --config Release
@@ -868,9 +861,7 @@ win:
         -DAVIF_ENABLE_WERROR=OFF ^
         -DAVIF_CODEC_DAV1D=SYSTEM ^
         -DAVIF_LIBYUV=OFF
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
     cmake --install . --config Debug
 release:
@@ -902,9 +893,7 @@ win:
         -DBUILD_SHARED_LIBS=OFF ^
         -DENABLE_DECODER=OFF ^
         -DENABLE_ENCODER=OFF
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
     cmake --install . --config Debug
 release:
@@ -989,9 +978,7 @@ win:
         -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=TRUE ^
         -DCMAKE_DISABLE_FIND_PACKAGE_PNG=TRUE ^
         -DWITH_EXAMPLES=OFF
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
     cmake --install . --config Debug
 release:
@@ -1055,9 +1042,7 @@ win:
         -DCMAKE_C_FLAGS="/DJXL_STATIC_DEFINE /DJXL_THREADS_STATIC_DEFINE /DJXL_CMS_STATIC_DEFINE" ^
         -DCMAKE_CXX_FLAGS="/DJXL_STATIC_DEFINE /DJXL_THREADS_STATIC_DEFINE /DJXL_CMS_STATIC_DEFINE" ^
         %cmake_defines%
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
     cmake --install . --config Debug
 release:
@@ -1370,7 +1355,7 @@ win:
         -D ALSOFT_UTILS=OFF ^
         -D ALSOFT_EXAMPLES=OFF ^
         -D ALSOFT_TESTS=OFF
-    debug:
+debug:
     cmake --build build --config Debug
 release:
     cmake --build build --config RelWithDebInfo
@@ -1517,8 +1502,7 @@ win:
     cmake -B out ^
         -DTG_ANGLE_SPECIAL_TARGET=%SPECIAL_TARGET% ^
         -DTG_ANGLE_ZLIB_INCLUDE_PATH=%LIBS_DIR%/zlib
-    debug:
-    debug:
+debug:
     cmake --build out --config Debug
 release:
     cmake --build out --config Release
@@ -1704,10 +1688,7 @@ win:
         -D LCMS2_FOUND=1 ^
         -D LCMS2_INCLUDE_DIR="%LCMS2_DIR%\\include" ^
         -D LCMS2_LIBRARIES="%LCMS2_DIR%\\out\\Release\\src\\liblcms2.a"
-
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
     cmake --install . --config Debug
     cmake --build .
@@ -1736,8 +1717,7 @@ win:
         -DTG_OWT_LIBVPX_INCLUDE_PATH=$LIBVPX_PATH \
         -DTG_OWT_OPENH264_INCLUDE_PATH=$OPENH264_PATH \
         -DTG_OWT_FFMPEG_INCLUDE_PATH=$FFMPEG_PATH
-    debug:
-    debug:
+debug:
     cmake --build out --config Debug
 release:
     cmake --build out --config Release
@@ -1823,8 +1803,7 @@ win:
         -D ADA_TOOLS=OFF ^
         -D ADA_INCLUDE_URL_PATTERN=OFF ^
         -D CMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
-    debug:
-    debug:
+debug:
     cmake --build out --config Debug
     cmake --build out --config Release
 mac:
@@ -1854,9 +1833,7 @@ win:
         -Dprotobuf_WITH_ZLIB_DEFAULT=OFF ^
         -Dprotobuf_DEBUG_POSTFIX=""
     cmake --build . --config Release
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
 """)
 # mac:
@@ -1905,9 +1882,7 @@ win:
         -DTD_ENABLE_MULTI_PROCESSOR_COMPILATION=ON ^
         -DTD_E2E_ONLY=ON ^
         ../..
-    debug:
-    debug:
-    debug:
+debug:
     cmake --build . --config Debug
 release:
     cd ..
