@@ -49,13 +49,38 @@ jobs:
                 'set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase" CACHE STRING "")',
                 'set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT\n    "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>$<$<CONFIG:Release,MinSizeRel>:Embedded>"\n    CACHE STRING "" FORCE)')
 
+      - name: Free Disk Space
+        shell: pwsh
+        run: |
+          $paths = @(
+              "C:\Program Files\Android",
+              "C:\hostedtoolcache\windows\dotnet",
+              "C:\Program Files\dotnet",
+              "C:\usr\share\dotnet"
+          )
+          foreach ($path in $paths) {
+              if (Test-Path $path) {
+                  Write-Host "Removing $path"
+                  Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+              }
+          }
+          Write-Host "Disk space after cleanup:"
+          Get-PSDrive C | Select-Object Free
+
+      - name: Configure Pagefile
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 16GB
+          disk-guid: "C:"
+
       - name: Cache Dependencies
         uses: actions/cache@v4
         with:
           path: |
             Libraries
             ThirdParty
-          key: ${{ runner.os }}-build-deps-${{ hashFiles('Telegram/build/prepare/prepare.py', '.gitmodules') }}
+          key: ${{ runner.os }}-build-deps-${{ hashFiles('Telegram/build/prepare/prepare.py', '.gitmodules') }}-skip-debug
           restore-keys: |
             ${{ runner.os }}-build-deps-
 
@@ -74,7 +99,7 @@ jobs:
         run: |
           mkdir Libraries
           mkdir ThirdParty
-          call Telegram\build\prepare\win.bat
+          call Telegram\build\prepare\win.bat skip-debug
 
       - name: Configure
         shell: cmd
