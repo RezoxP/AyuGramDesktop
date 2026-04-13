@@ -230,6 +230,7 @@ def filterByPlatform(commands):
     dependencies = []
     version = '0'
     skip = False
+    platform_skip = False
     for command in commands:
         m = re.match(r'(!?)([a-z0-9_]+):', command)
         if m and m.group(2) != 'depends' and m.group(2) != 'version':
@@ -247,17 +248,21 @@ def filterByPlatform(commands):
                 inscope = True
             # if linux and 'linux' in scopes:
             #     inscope = True
+
+            is_pure_modifier = (len(scopes) == 1 and scopes[0] in ['debug', 'release'])
+            if is_pure_modifier:
+                inscope = not platform_skip
+
             if 'release' in scopes:
                 if 'skip-release' in options:
                     inscope = False
-                elif len(scopes) == 1:
-                    continue
             if 'debug' in scopes:
                 if 'skip-debug' in options:
                     inscope = False
-                elif len(scopes) == 1:
-                    continue
+
             skip = inscope if m.group(1) == '!' else not inscope
+            if not is_pure_modifier:
+                platform_skip = skip
         elif not skip and not re.match(r'\s*#', command):
             if m and m.group(2) == 'version':
                 version = version + '.' + command[len(m.group(0)):].strip()
