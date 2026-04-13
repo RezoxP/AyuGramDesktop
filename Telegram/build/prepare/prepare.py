@@ -655,6 +655,7 @@ win:
         -DOPUS_STATIC_RUNTIME=ON
 debug:
     cmake --build out --config Debug
+release:
     cmake --build out --config Release
     cmake --install out --config Release
 mac:
