@@ -38,7 +38,7 @@ elif winarm:
 if not qt_version.resolve(arch):
     error('Usupported platform.')
 
-qt = os.environ.get('QT')
+qt = os.environ['QT']
 
 if win and not 'COMSPEC' in os.environ:
     error('COMSPEC environment variable is not set.')
@@ -407,7 +407,7 @@ def runStages():
             if checkResult == 'Stale':
                 print('CHANGED, ', end='')
             if rebuildStale:
-                checkResult == 'Rebuild'
+                checkResult = 'Rebuild'
             else:
                 print('(r)ebuild, rebuild (a)ll, (s)kip, (p)rint, (q)uit?: ', end='', flush=True)
                 while True:
@@ -525,6 +525,7 @@ stage('lzma', """
 win:
     git clone https://github.com/desktop-app/lzma.git
     cd lzma\\C\\Util\\LzmaLib
+debug:
     msbuild -m LzmaLib.sln /property:Configuration=Debug /property:Platform="$X8664"
 release:
     msbuild -m LzmaLib.sln /property:Configuration=Release /property:Platform="$X8664"
@@ -620,9 +621,9 @@ win_debug:
     move libssl.lib out.dbg
     move ossl_static.pdb out.dbg
 release:
-    move out.dbg\\ossl_static.pdb out.dbg\\ossl_static
+    if exist out.dbg move out.dbg\\ossl_static.pdb out.dbg\\ossl_static
     jom clean
-    move out.dbg\\ossl_static out.dbg\\ossl_static.pdb
+    if exist out.dbg move out.dbg\\ossl_static out.dbg\\ossl_static.pdb
 win32_release:
     perl Configure no-shared no-tests VC-WIN32 /FS
 win64_release:
@@ -762,6 +763,7 @@ win:
 
 depends:python/Scripts/activate.bat
     %THIRDPARTY_DIR%\\python\\Scripts\\activate.bat
+debug:
     meson setup --cross-file %FILE% --prefix %LIBS_DIR%/local --default-library=static --buildtype=debug -Denable_tools=false -Denable_tests=false %DAV1D_ASM_DISABLE% -Db_vscrt=mtd builddir-debug
     meson compile -C builddir-debug
     meson install -C builddir-debug
@@ -822,6 +824,7 @@ win:
 
 depends:python/Scripts/activate.bat
     %THIRDPARTY_DIR%\\python\\Scripts\\activate.bat
+debug:
     meson setup --cross-file %FILE% --prefix %LIBS_DIR%/local --default-library=static --buildtype=debug -Db_vscrt=mtd builddir-debug
     meson compile -C builddir-debug
     meson install -C builddir-debug
@@ -922,7 +925,9 @@ stage('libwebp', """
     git clone -b v1.6.0 https://github.com/webmproject/libwebp.git
     cd libwebp
 win:
+debug:
     nmake /f Makefile.vc CFG=debug-static OBJDIR=out RTLIBCFG=static all
+release:
     nmake /f Makefile.vc CFG=release-static OBJDIR=out RTLIBCFG=static all
     copy out\\release-static\\$X8664\\lib\\libwebp.lib out\\release-static\\$X8664\\lib\\webp.lib
     copy out\\release-static\\$X8664\\lib\\libwebpdemux.lib out\\release-static\\$X8664\\lib\\webpdemux.lib
@@ -1131,6 +1136,7 @@ stage('liblcms2', """
 win:
 depends:python/Scripts/activate.bat
     %THIRDPARTY_DIR%\\python\\Scripts\\activate.bat
+debug:
     meson setup --default-library=static --buildtype=debug -Db_vscrt=mtd out/Debug
     meson compile -C out/Debug
 release:
@@ -1809,6 +1815,7 @@ win:
         -D CMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>"
 debug:
     cmake --build out --config Debug
+release:
     cmake --build out --config Release
 mac:
     CFLAGS="$UNGUARDED" CPPFLAGS="$UNGUARDED" cmake -B build . \\
@@ -1836,6 +1843,7 @@ win:
         -Dprotobuf_BUILD_LIBPROTOC=ON ^
         -Dprotobuf_WITH_ZLIB_DEFAULT=OFF ^
         -Dprotobuf_DEBUG_POSTFIX=""
+release:
     cmake --build . --config Release
 debug:
     cmake --build . --config Debug
@@ -1865,9 +1873,10 @@ win:
     SET OPENSSL_LIBS_DIR=%OPENSSL_DIR%\\out
     SET ZLIB_LIBS_DIR=%LIBS_DIR%\\zlib
     %THIRDPARTY_DIR%\\msys64\\usr\\bin\\sed -i "s/STREQUAL/MATCHES/" td/generate/CMakeLists.txt
-    mkdir out
+    if not exist out mkdir out
+debug:
     cd out
-    mkdir Debug
+    if not exist Debug mkdir Debug
     cd Debug
     cmake ^
         -DOPENSSL_FOUND=1 ^
@@ -1886,11 +1895,11 @@ win:
         -DTD_ENABLE_MULTI_PROCESSOR_COMPILATION=ON ^
         -DTD_E2E_ONLY=ON ^
         ../..
-debug:
     cmake --build . --config Debug
-release:
     cd ..
-    mkdir Release
+release:
+    cd out
+    if not exist Release mkdir Release
     cd Release
     cmake ^
         -DOPENSSL_FOUND=1 ^
@@ -1910,6 +1919,7 @@ release:
         -DTD_E2E_ONLY=ON ^
         ../..
     cmake --build . --config Release
+    cd ..
 mac:
     buildTd() {
         BUILD_CONFIG=$1
