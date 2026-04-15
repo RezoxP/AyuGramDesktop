@@ -84,8 +84,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            Libraries
-            ThirdParty
+            ../Libraries
+            ../ThirdParty
           key: ${{ runner.os }}-build-deps-${{ hashFiles('Telegram/build/prepare/prepare.py', '.gitmodules') }}-skip-debug
           restore-keys: |
             ${{ runner.os }}-build-deps-
@@ -103,8 +103,6 @@ jobs:
       - name: Prepare Dependencies
         shell: cmd
         run: |
-          mkdir Libraries
-          mkdir ThirdParty
           call Telegram\build\prepare\win.bat skip-debug
 
       - name: Configure
