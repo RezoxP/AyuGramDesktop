@@ -1,0 +1,118 @@
+name: Official AyuGram Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: 'dev'
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout Official Repo
+        uses: actions/checkout@v4
+        with:
+          repository: AyuGram/AyuGramDesktop
+          ref: ${{ github.event.inputs.branch }}
+          submodules: recursive
+
+      - name: Apply Build Patches
+        shell: python
+        run: |
+          import os, re
+
+          def patch_file(path, old, new):
+              if not os.path.exists(path):
+                  print(f"Skipping {path}: Not found")
+                  return
+              with open(path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              if old not in content:
+                  print(f"Warning: Content not found in {path}")
+                  return
+              with open(path, 'w', encoding='utf-8', newline='\n') as f:
+                  f.write(content.replace(old, new))
+              print(f"Patched {path}")
+
+          # Native CMake Patches
+          patch_file('cmake/options_win.cmake', 
+                    '/MP     # Enable multi process build.', 
+                    '/MP     # Enable multi process build.\n        /FS')
+          patch_file('cmake/options_win.cmake',
+                    '$<$<NOT:$<AND:$<CONFIG:Debug>,$<BOOL:${build_win64}>>>:$<IF:$<STREQUAL:$<GENEX_EVAL:$<TARGET_PROPERTY:MSVC_DEBUG_INFORMATION_FORMAT>>,ProgramDatabase>,/DEBUG,/DEBUG:NONE>>',
+                    '$<$<NOT:$<AND:$<CONFIG:Debug>,$<BOOL:${build_win64}>>>:$<IF:$<BOOL:$<GENEX_EVAL:$<TARGET_PROPERTY:MSVC_DEBUG_INFORMATION_FORMAT>>>,/DEBUG,/DEBUG:NONE>>')
+          patch_file('cmake/variables.cmake',
+                    'set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase" CACHE STRING "")',
+                    'set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT\n    "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>$<$<CONFIG:Release,MinSizeRel>:Embedded>"\n    CACHE STRING "" FORCE)')
+
+          # prepare.py Fixes (Stability and skip-debug support)
+          prep_path = 'Telegram/build/prepare/prepare.py'
+          if os.path.exists(prep_path):
+              with open(prep_path, 'r', encoding='utf-8') as f:
+                  prep = f.read()
+              
+              # Fix qt is None error
+              prep = prep.replace("qt = os.environ.get('QT')", "qt = os.environ['QT']")
+              # Fix lzma debug scope
+              prep = prep.replace('    msbuild -m LzmaLib.sln /property:Configuration=Debug /property:Platform="$X8664"\nrelease:', 'debug:\n    msbuild -m LzmaLib.sln /property:Configuration=Debug /property:Platform="$X8664"\nrelease:')
+              # Fix openssl3 out.dbg crash
+              prep = prep.replace('    move out.dbg\\\\ossl_static.pdb out.dbg\\\\ossl_static', '    if exist out.dbg move out.dbg\\\\ossl_static.pdb out.dbg\\\\ossl_static')
+              prep = prep.replace('    move out.dbg\\\\ossl_static out.dbg\\\\ossl_static.pdb', '    if exist out.dbg move out.dbg\\\\ossl_static out.dbg\\\\ossl_static.pdb')
+              
+              with open(prep_path, 'w', encoding='utf-8', newline='\n') as f:
+                  f.write(prep)
+              print("Patched prepare.py with specialized stability fixes")
+
+      - name: Free Disk Space
+        shell: pwsh
+        run: |
+          $paths = @("C:\Program Files\Android", "C:\hostedtoolcache\windows\dotnet", "C:\Program Files\dotnet")
+          foreach ($path in $paths) { if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue } }
+
+      - name: Configure Pagefile
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 16GB
+          disk-root: "C:"
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ../Libraries
+            ../ThirdParty
+          key: ${{ runner.os }}-official-deps-${{ hashFiles('Telegram/build/prepare/prepare.py', '.gitmodules') }}-skip-debug
+          restore-keys: ${{ runner.os }}-official-deps-
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Prepare Dependencies
+        shell: cmd
+        run: call Telegram\build\prepare\win.bat skip-debug
+
+      - name: Configure
+        shell: cmd
+        run: call Telegram\configure.bat x64 -D TDESKTOP_API_ID=2040 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
+
+      - name: Build
+        shell: cmd
+        run: cmake --build out --config Release --target Telegram
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-Official-${{ github.event.inputs.branch }}
+          path: out/Release/AyuGram.exe
