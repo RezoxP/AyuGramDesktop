@@ -1,0 +1,127 @@
+name: Advanced AyuGram Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: 'dev'
+        type: string
+
+env:
+  # 🔒 SECURITY UPGRADE: Use GitHub Secrets instead of hardcoding keys.
+  # If secrets aren't set, it falls back to the public test keys.
+  # To set yours, go to Repo Settings > Secrets and variables > Actions
+  API_ID: ${{ secrets.TG_API_ID || '2040' }}
+  API_HASH: ${{ secrets.TG_API_HASH || 'b18441a1ff607e10a989891a5462e627' }}
+
+jobs:
+  build:
+    name: Build Windows x64
+    runs-on: windows-2022
+    # ⏱️ SAFETY: Prevent the job from running forever and eating your minutes if MSVC hangs
+    timeout-minutes: 180 
+
+    steps:
+      - name: 📥 Checkout Official Repo
+        uses: actions/checkout@v4
+        with:
+          repository: AyuGram/AyuGramDesktop
+          ref: ${{ inputs.branch }}
+          submodules: recursive
+          fetch-depth: 1 # ⚡ SPEED: Shallow clone saves significant time and disk space
+
+      - name: 🧹 Maximize Build Space
+        shell: pwsh
+        run: |
+          Write-Host "Freeing up disk space for Chromium/WebRTC..."
+          $pathsToRemove = @(
+            "C:\Program Files\Android",
+            "C:\hostedtoolcache\windows",
+            "C:\Program Files\dotnet",
+            "C:\mysql",
+            "C:\Program Files\Microsoft SQL Server"
+          )
+          foreach ($path in $pathsToRemove) {
+            if (Test-Path $path) { Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: 💽 Configure Pagefile (16GB)
+        uses: al-cheb/configure-pagefile-action@v1.4
+        with:
+          minimum-size: 16GB
+          maximum-size: 16GB
+          disk-root: "C:"
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 🛠️ Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: 📦 Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ../Libraries
+            ../ThirdParty
+          key: ${{ runner.os }}-tg-deps-${{ hashFiles('Telegram/build/prepare/prepare.py', '.gitmodules') }}-skip-debug
+          restore-keys: |
+            ${{ runner.os }}-tg-deps-
+
+      - name: 🩹 Apply Build Patches
+        shell: python
+        run: |
+          import os
+
+          def patch(path, old, new):
+              if not os.path.exists(path): return
+              with open(path, 'r', encoding='utf-8') as f: content = f.read()
+              if old in content:
+                  with open(path, 'w', encoding='utf-8', newline='\n') as f:
+                      f.write(content.replace(old, new))
+
+          # CMake: Force synchronous PDB writes to prevent fatal MSVC threading errors
+          patch('cmake/options_win.cmake', '/MP      # Enable multi process build.', '/MP\n        /FS')
+          patch('cmake/variables.cmake', 'set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase" CACHE STRING "")', 'set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT\n    "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>$<$<CONFIG:Release,MinSizeRel>:Embedded>"\n    CACHE STRING "" FORCE)')
+
+          # prepare.py fixes
+          prep = 'Telegram/build/prepare/prepare.py'
+          patch(prep, "qt = os.environ.get('QT')", "qt = os.environ['QT']")
+          patch(prep, 'msbuild -m LzmaLib.sln /property:Configuration=Debug', 'msbuild -m LzmaLib.sln /property:Configuration=Release')
+          patch(prep, 'move out.dbg\\ossl_static.pdb', 'if exist out.dbg move out.dbg\\ossl_static.pdb')
+          patch(prep, 'move out.dbg\\ossl_static', 'if exist out.dbg move out.dbg\\ossl_static')
+
+      - name: ⚙️ Prepare Dependencies
+        shell: cmd
+        run: call Telegram\build\prepare\win.bat skip-debug
+
+      - name: 🔨 Configure CMake
+        shell: cmd
+        run: call Telegram\configure.bat x64 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH%
+
+      - name: 🚀 Build AyuGram
+        shell: cmd
+        # ⚡ SPEED: Force CMake to use all available CPU cores
+        run: cmake --build out --config Release --target Telegram --parallel %NUMBER_OF_PROCESSORS%
+
+      - name: 🏷️ Resolve Artifact Name
+        shell: pwsh
+        # 🐛 BUGFIX: Telegram's CMake usually outputs "Telegram.exe". This renames it so the upload doesn't fail.
+        run: |
+          if (Test-Path "out\Release\Telegram.exe") {
+              Rename-Item -Path "out\Release\Telegram.exe" -NewName "AyuGram.exe"
+          }
+
+      - name: 📤 Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-Windows-${{ inputs.branch }}
+          path: out/Release/AyuGram.exe
+          compression-level: 9 # 📦 Compress the final artifact to save download time
+          if-no-files-found: error # Fail loudly if the exe is missing
