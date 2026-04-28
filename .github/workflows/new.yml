@@ -10,9 +10,6 @@ on:
         type: string
 
 env:
-  # 🔒 SECURITY UPGRADE: Use GitHub Secrets instead of hardcoding keys.
-  # If secrets aren't set, it falls back to the public test keys.
-  # To set yours, go to Repo Settings > Secrets and variables > Actions
   API_ID: ${{ secrets.TG_API_ID || '2040' }}
   API_HASH: ${{ secrets.TG_API_HASH || 'b18441a1ff607e10a989891a5462e627' }}
 
@@ -20,7 +17,6 @@ jobs:
   build:
     name: Build Windows x64
     runs-on: windows-2022
-    # ⏱️ SAFETY: Prevent the job from running forever and eating your minutes if MSVC hangs
     timeout-minutes: 180 
 
     steps:
@@ -30,7 +26,7 @@ jobs:
           repository: AyuGram/AyuGramDesktop
           ref: ${{ inputs.branch }}
           submodules: recursive
-          fetch-depth: 1 # ⚡ SPEED: Shallow clone saves significant time and disk space
+          fetch-depth: 1
 
       - name: 🧹 Maximize Build Space
         shell: pwsh
@@ -107,12 +103,10 @@ jobs:
 
       - name: 🚀 Build AyuGram
         shell: cmd
-        # ⚡ SPEED: Force CMake to use all available CPU cores
         run: cmake --build out --config Release --target Telegram --parallel %NUMBER_OF_PROCESSORS%
 
       - name: 🏷️ Resolve Artifact Name
         shell: pwsh
-        # 🐛 BUGFIX: Telegram's CMake usually outputs "Telegram.exe". This renames it so the upload doesn't fail.
         run: |
           if (Test-Path "out\Release\Telegram.exe") {
               Rename-Item -Path "out\Release\Telegram.exe" -NewName "AyuGram.exe"
